@@ -31,6 +31,36 @@
     return format.replace(placeholder, value);
   }
 
+  // Prices for one offer card, in the shop's minor currency unit (cents, öre).
+  // `was` is the strikethrough price, or null when the card should not show one.
+  function tierPrices(unit, compareUnit, quantity, value, discountType, compareMode) {
+    var regular = unit * quantity;
+    var now;
+    if (discountType === 'fixed') {
+      now = Math.max(0, regular - value * 100);
+    } else {
+      now = Math.round((regular * (100 - value)) / 100);
+    }
+    // "Was" base: compare-at × quantity in compareAt mode (regular price if the
+    // variant has no compare-at price), otherwise regular price × quantity.
+    var was = regular;
+    if (compareMode === 'compareAt' && compareUnit && compareUnit > 0) {
+      was = compareUnit * quantity;
+    }
+    // If the card would otherwise have no strikethrough (e.g. the single-item offer
+    // with no discount) but the product has a compare-at price, compare against that.
+    if (was <= now && compareUnit && compareUnit > 0) {
+      was = compareUnit * quantity;
+    }
+    return {now: now, was: was > now ? was : null};
+  }
+
+  // The unit tests load the two pure functions above. `module` does not exist in the browser.
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {formatMoney: formatMoney, tierPrices: tierPrices};
+    return;
+  }
+
   function currentVariantId(root) {
     var input = document.querySelector(
       'form[action*="/cart/add"] [name="id"], product-form [name="id"], [name="id"][form]'
@@ -88,44 +118,20 @@
     return first ? this.variants[first] : null;
   };
 
-  VolumeBundle.prototype.unitPrice = function () {
-    var v = this.currentVariant();
-    return v ? v.price : null;
-  };
-
   VolumeBundle.prototype.refreshPrices = function () {
     var variant = this.currentVariant();
     if (!variant || variant.price == null) return;
-    var unit = variant.price;
-    var compareUnit = variant.compareAt;
     var self = this;
     this.tiers.forEach(function (tier) {
       var qty = parseInt(tier.getAttribute('data-quantity'), 10) || 1;
       var val = parseFloat(tier.getAttribute('data-discount')) || 0;
-      var regular = unit * qty;
-      var discounted;
-      if (self.discountType === 'fixed') {
-        discounted = Math.max(0, regular - val * 100);
-      } else {
-        discounted = Math.round((regular * (100 - val)) / 100);
-      }
-      // "Was" base: compare-at × quantity in compareAt mode (regular price if the
-      // variant has no compare-at price), otherwise regular price × quantity.
-      var compare = regular;
-      if (self.compareMode === 'compareAt' && compareUnit && compareUnit > 0) {
-        compare = compareUnit * qty;
-      }
-      // If the card would otherwise have no strikethrough (e.g. the single-item offer
-      // with no discount) but the product has a compare-at price, compare against that.
-      if (compare <= discounted && compareUnit && compareUnit > 0) {
-        compare = compareUnit * qty;
-      }
+      var prices = tierPrices(variant.price, variant.compareAt, qty, val, self.discountType, self.compareMode);
       var now = tier.querySelector('[data-vb-now]');
       var was = tier.querySelector('[data-vb-was]');
-      if (now) now.textContent = formatMoney(discounted, self.format);
+      if (now) now.textContent = formatMoney(prices.now, self.format);
       if (was) {
-        if (compare > discounted) {
-          was.textContent = formatMoney(compare, self.format);
+        if (prices.was !== null) {
+          was.textContent = formatMoney(prices.was, self.format);
           was.removeAttribute('hidden');
         } else {
           was.setAttribute('hidden', '');

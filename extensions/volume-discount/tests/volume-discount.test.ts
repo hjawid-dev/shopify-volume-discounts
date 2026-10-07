@@ -1,6 +1,10 @@
 import {describe, test, expect} from 'vitest';
 import {cartLinesDiscountsGenerateRun} from '../src/cart_lines_discounts_generate_run';
-import {DiscountClass, ProductDiscountSelectionStrategy} from '../generated/api';
+import {
+  DiscountClass,
+  ProductDiscountSelectionStrategy,
+  type CartLinesDiscountsGenerateRunResult,
+} from '../generated/api';
 
 const TIERS = JSON.stringify({
   tiers: [
@@ -31,6 +35,13 @@ function buildInput({
       metafield: metafieldValue === null ? null : {value: metafieldValue},
     },
   } as any;
+}
+
+// The candidates of the single product discount operation the function is expected to return.
+function candidatesOf(result: CartLinesDiscountsGenerateRunResult) {
+  const add = result.operations[0]?.productDiscountsAdd;
+  if (!add) throw new Error('expected a productDiscountsAdd operation');
+  return add.candidates;
 }
 
 describe('cartLinesDiscountsGenerateRun', () => {
@@ -85,7 +96,7 @@ describe('cartLinesDiscountsGenerateRun', () => {
     const result = cartLinesDiscountsGenerateRun(
       buildInput({lines: [{id: 'gid://l/1', quantity: 4}]}),
     );
-    const candidate = result.operations[0].productDiscountsAdd.candidates[0];
+    const candidate = candidatesOf(result)[0];
     expect(candidate.value).toEqual({percentage: {value: 20}});
   });
 
@@ -99,9 +110,9 @@ describe('cartLinesDiscountsGenerateRun', () => {
         ],
       }),
     );
-    const candidates = result.operations[0].productDiscountsAdd.candidates;
+    const candidates = candidatesOf(result);
     expect(candidates).toHaveLength(2);
-    expect(candidates.map((c: {targets: {cartLine: {id: string}}[]}) => c.targets[0].cartLine.id)).toEqual([
+    expect(candidates.map((c) => c.targets[0]?.cartLine?.id)).toEqual([
       'gid://l/1',
       'gid://l/3',
     ]);
@@ -115,7 +126,7 @@ describe('cartLinesDiscountsGenerateRun', () => {
     const result = cartLinesDiscountsGenerateRun(
       buildInput({lines: [{id: 'gid://l/1', quantity: 2}], metafieldValue: fixedConfig}),
     );
-    const candidate = result.operations[0].productDiscountsAdd.candidates[0];
+    const candidate = candidatesOf(result)[0];
     expect(candidate.value).toEqual({fixedAmount: {amount: '50'}});
   });
 
@@ -132,7 +143,7 @@ describe('cartLinesDiscountsGenerateRun', () => {
     const result = cartLinesDiscountsGenerateRun(
       buildInput({lines: [{id: 'gid://l/1', quantity: 3}], metafieldValue: offersConfig}),
     );
-    const candidate = result.operations[0].productDiscountsAdd.candidates[0];
+    const candidate = candidatesOf(result)[0];
     expect(candidate.value).toEqual({percentage: {value: 15}});
     expect(candidate.message).toBe('Bundle & save');
   });

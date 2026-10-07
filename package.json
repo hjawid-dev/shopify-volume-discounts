@@ -13,7 +13,9 @@
     "generate": "shopify app generate",
     "deploy": "shopify app deploy",
     "typegen": "npm run typegen -w volume-discount",
-    "test": "npm run test -w volume-discount -- --run"
+    "test": "npm run test -w volume-discount -- --run && vitest run --dir tests",
+    "lint": "eslint .",
+    "typecheck": "tsc -p extensions/volume-discount"
   },
   "dependencies": {
     "@shopify/cli": "4.1.0"
@@ -22,5 +24,12 @@
     "@shopify/plugin-cloudflare"
   ],
   "author": "Hjalmar Widlund",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.7"
+  }
 }

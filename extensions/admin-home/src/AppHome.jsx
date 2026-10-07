@@ -217,7 +217,6 @@ function App() {
       }
       const value = JSON.stringify(configValue());
 
-      let savedId = editing.id;
       if (editing.id) {
         const metafield = editing.metafieldId
           ? {id: editing.metafieldId, value}
@@ -239,7 +238,6 @@ function App() {
           },
         });
         throwUserErrors(data.discountAutomaticAppCreate.userErrors);
-        savedId = data.discountAutomaticAppCreate.automaticAppDiscount?.discountId;
       }
 
       // Mirror the saved config to the shop metafield the storefront widget reads.

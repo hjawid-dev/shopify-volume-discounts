@@ -36,6 +36,8 @@ flowchart LR
 
 Colours, sizes and what happens after add-to-cart are block settings in the theme editor, so they can be adjusted with live preview.
 
+Offers are edited in one place only. An earlier version also had a settings form on Shopify's own discount page, but a change made there reached checkout without reaching the product page. I removed it so that the two can never show different prices.
+
 ## What is in the repository
 
 | Path | What it is |
@@ -43,18 +45,20 @@ Colours, sizes and what happens after add-to-cart are block settings in the them
 | [`extensions/volume-discount`](extensions/volume-discount) | The Shopify Function that calculates the discount, with unit tests |
 | [`extensions/bundle-widget`](extensions/bundle-widget) | Theme app extension: the Liquid block, stylesheet and script for the product page |
 | [`extensions/admin-home`](extensions/admin-home) | Admin UI for creating, editing, pausing and deleting discounts (Preact and Polaris web components) |
-| [`extensions/volume-discount-settings`](extensions/volume-discount-settings) | A minimal settings block on Shopify's own discount page |
+| [`tests`](tests) | Unit tests for the widget's price calculation and money formatting |
 | [`demo`](demo) | A static page that runs the real widget stylesheet and script with made-up data |
 
 ## Try it
 
 The widget can be tried without a Shopify store. Open `demo/index.html` in a browser.
 
-To run the tests for the discount function:
+To run the checks:
 
 ```shell
 npm install
 npm run typegen
+npm run lint
+npm run typecheck
 npm test
 ```
 
@@ -70,7 +74,7 @@ npx shopify app dev
 
 ## Tests
 
-The function is a pure function from cart and configuration to discount operations, so it is tested without Shopify. The tests cover:
+The discount function is a pure function from cart and configuration to discount operations, so it is tested without Shopify. The tests cover:
 
 - an empty cart, a missing configuration and invalid JSON
 - quantities below the lowest tier
@@ -79,11 +83,14 @@ The function is a pure function from cart and configuration to discount operatio
 - percentage and fixed-amount discounts
 - both configuration formats the function accepts
 
+The widget's price calculation is tested the same way: percentage and fixed discounts, rounding, when a strikethrough price is shown, and money formatting for the shop formats Shopify uses.
+
+Linting, type checking and all tests run on every push. The admin UI and the theme block need a Shopify store to run, so they are not covered by automated tests.
+
 ## Limitations
 
 - **Tiers are counted per cart line.** Two different variants of the same product do not add up to a "Buy 2" tier.
 - **One widget configuration per shop.** The most recently saved discount is the one the product page shows.
-- **The settings block on Shopify's discount page is the older, simpler UI.** It handles percentage tiers only, and saving from it does not update the widget. The admin UI in `admin-home` is the one to use.
 - **The cart drawer integration targets Shopify's Horizon themes.** On other themes the widget sends the customer to the cart page instead.
 - **The admin UI is in English only.**
 
