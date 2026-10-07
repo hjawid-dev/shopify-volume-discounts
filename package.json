@@ -1,0 +1,26 @@
+{
+  "name": "shopify-volume-discounts",
+  "version": "1.0.0",
+  "license": "MIT",
+  "workspaces": [
+    "extensions/*"
+  ],
+  "scripts": {
+    "shopify": "shopify",
+    "build": "shopify app build",
+    "dev": "shopify app dev",
+    "info": "shopify app info",
+    "generate": "shopify app generate",
+    "deploy": "shopify app deploy",
+    "typegen": "npm run typegen -w volume-discount",
+    "test": "npm run test -w volume-discount -- --run"
+  },
+  "dependencies": {
+    "@shopify/cli": "4.1.0"
+  },
+  "trustedDependencies": [
+    "@shopify/plugin-cloudflare"
+  ],
+  "author": "Hjalmar Widlund",
+  "private": true
+}

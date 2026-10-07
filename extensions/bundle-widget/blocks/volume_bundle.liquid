@@ -1,0 +1,207 @@
+{%- liquid
+  assign product = block.settings.product
+  assign variant = product.selected_or_first_available_variant
+  assign unit_price = variant.price
+
+  assign cfg = shop.metafields.volume_discounts.widget_config.value
+  assign offers = cfg.offers
+  assign dtype = cfg.discountType | default: 'percentage'
+  assign cmp_mode = cfg.compareAtMode | default: 'regular'
+  assign compare_unit = variant.compare_at_price
+  assign tier_scale = block.settings.tier_scale | default: 100 | times: 0.01
+  assign atc_scale = block.settings.atc_scale | default: 100 | times: 0.01
+  assign badge_left = 'auto'
+  assign badge_right = '18px'
+  if block.settings.badge_position == 'left'
+    assign badge_left = '18px'
+    assign badge_right = 'auto'
+  endif
+
+  assign atc_text = block.settings.atc_text | default: 'Add to cart'
+  if cfg.atcText != blank
+    assign atc_text = cfg.atcText
+  endif
+
+  assign has_pre = false
+  for o in offers
+    if o.preselected
+      assign has_pre = true
+    endif
+  endfor
+-%}
+
+<volume-bundle
+  class="vb"
+  data-money-format="{{ shop.money_format | escape }}"
+  data-discount-type="{{ dtype }}"
+  data-compare-mode="{{ cmp_mode }}"
+  data-variant-id="{{ variant.id }}"
+  data-after-add="{{ block.settings.after_add | default: 'cart' }}"
+  style="
+    --vb-accent: {{ block.settings.accent_color }};
+    --vb-selected-bg: {{ block.settings.selected_bg }};
+    --vb-badge-text: {{ block.settings.badge_text_color }};
+    --vb-atc-text: {{ block.settings.atc_text_color }};
+    --vb-now-color: {{ block.settings.now_color | default: block.settings.accent_color }};
+    --vb-was-color: {{ block.settings.was_color }};
+    --vb-atc-bg: {{ block.settings.atc_bg | default: block.settings.accent_color }};
+    --vb-radius: {{ block.settings.card_radius }}px;
+    --vb-border-width: {{ block.settings.border_width }}px;
+    --vb-gap: {{ block.settings.gap }}px;
+    --vb-tier-scale: {{ tier_scale }};
+    --vb-atc-scale: {{ atc_scale }};
+    --vb-text-gap: {{ block.settings.text_gap | default: 10 }}px;
+    --vb-atc-radius: {{ block.settings.atc_radius }}px;
+    --vb-width: {{ block.settings.width_pct }}%;
+    --vb-badge-inset-left: {{ badge_left }};
+    --vb-badge-inset-right: {{ badge_right }};
+  "
+>
+  <script type="application/json" class="vb__variants">
+    {
+      {%- for v in product.variants -%}
+        "{{ v.id }}": {"price": {{ v.price | json }}, "compareAt": {{ v.compare_at_price | json }}}{% unless forloop.last %},{% endunless %}
+      {%- endfor -%}
+    }
+  </script>
+
+  {%- if offers == blank or offers.size == 0 -%}
+    {%- comment -%} No offers configured yet – set them up in the app. {%- endcomment -%}
+  {%- else -%}
+    <div class="vb__tiers" role="radiogroup" aria-label="Choose an offer">
+      {%- for offer in offers -%}
+        {%- liquid
+          assign qty = offer.quantity | at_least: 1
+          assign val = offer.value | default: 0
+          assign regular = unit_price | times: qty
+          if dtype == 'fixed'
+            assign val_cents = val | times: 100
+            assign discounted = regular | minus: val_cents | at_least: 0
+          else
+            assign keep = 100 | minus: val
+            assign discounted = regular | times: keep | divided_by: 100
+          endif
+
+          # "Was" base: compare-at × quantity in compareAt mode (regular price if there is no compare-at price), otherwise regular price × quantity.
+          assign compare = regular
+          if cmp_mode == 'compareAt' and compare_unit != blank and compare_unit > 0
+            assign compare = compare_unit | times: qty
+          endif
+
+          # If the card would otherwise have no strikethrough (e.g. the single-item offer with no
+          # discount) but the product has a compare-at price, compare against that instead.
+          if compare <= discounted and compare_unit != blank and compare_unit > 0
+            assign compare = compare_unit | times: qty
+          endif
+
+          assign is_default = false
+          if offer.preselected
+            assign is_default = true
+          elsif has_pre == false and forloop.first
+            assign is_default = true
+          endif
+        -%}
+        <label
+          class="vb__tier{% if is_default %} is-selected{% endif %}"
+          data-quantity="{{ qty }}"
+          data-discount="{{ val }}"
+        >
+          {%- if offer.badge != blank -%}
+            <span class="vb__badge">{{ offer.badge }}</span>
+          {%- endif -%}
+          <input
+            class="vb__radio"
+            type="radio"
+            name="vb-tier-{{ block.id }}"
+            value="{{ forloop.index }}"
+            {% if is_default %}checked{% endif %}
+          >
+          <span class="vb__radio-dot" aria-hidden="true"></span>
+          <span class="vb__info">
+            <span class="vb__label">{{ offer.title | default: product.title }}</span>
+            {%- if offer.subtitle != blank -%}
+              <span class="vb__sublabel">{{ offer.subtitle }}</span>
+            {%- endif -%}
+          </span>
+          <span class="vb__price">
+            <span class="vb__price-now" data-vb-now>{{ discounted | money }}</span>
+            <span class="vb__price-was" data-vb-was{% if compare <= discounted %} hidden{% endif %}>{%- if compare > discounted -%}{{ compare | money }}{%- endif -%}</span>
+          </span>
+        </label>
+      {%- endfor -%}
+    </div>
+
+    <button type="button" class="vb__atc" data-vb-atc>
+      <svg class="vb__atc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 7h13l-1.2 8.4a2 2 0 0 1-2 1.7H9.2a2 2 0 0 1-2-1.7L6 5H3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9.5" cy="20" r="1.3" fill="currentColor"/>
+        <circle cx="16" cy="20" r="1.3" fill="currentColor"/>
+      </svg>
+      <span>{{ atc_text }}</span>
+    </button>
+
+    {%- if block.settings.sticky_atc -%}
+      <div class="vb__sticky" data-vb-sticky hidden>
+        <button type="button" class="vb__atc vb__atc--sticky" data-vb-atc-sticky>
+          <svg class="vb__atc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 7h13l-1.2 8.4a2 2 0 0 1-2 1.7H9.2a2 2 0 0 1-2-1.7L6 5H3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="9.5" cy="20" r="1.3" fill="currentColor"/>
+            <circle cx="16" cy="20" r="1.3" fill="currentColor"/>
+          </svg>
+          <span>{{ atc_text }}</span>
+        </button>
+      </div>
+    {%- endif -%}
+  {%- endif -%}
+</volume-bundle>
+
+{{ 'volume-bundle.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'volume-bundle.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Volume discount",
+  "target": "section",
+  "settings": [
+    { "type": "product", "id": "product", "label": "Product", "autofill": true },
+    { "type": "paragraph", "content": "Offers (quantity, discount, texts, badge) are configured in the app. Appearance is set here, and changes show directly in the preview." },
+
+    { "type": "header", "content": "Colors" },
+    { "type": "color", "id": "accent_color", "label": "Accent (border and radio)", "default": "#16324a" },
+    { "type": "color", "id": "selected_bg", "label": "Background (selected offer)", "default": "#f3f8fc" },
+    { "type": "color", "id": "now_color", "label": "Price (discounted)", "default": "#16324a" },
+    { "type": "color", "id": "was_color", "label": "Price (regular)", "default": "#8b9199" },
+    { "type": "color", "id": "atc_bg", "label": "Button background", "default": "#16324a" },
+    { "type": "color", "id": "atc_text_color", "label": "Button text", "default": "#ffffff" },
+    { "type": "color", "id": "badge_text_color", "label": "Badge text", "default": "#ffffff" },
+
+    { "type": "header", "content": "Sizes" },
+    { "type": "range", "id": "tier_scale", "label": "Offer card size", "min": 60, "max": 160, "step": 5, "unit": "%", "default": 100 },
+    { "type": "range", "id": "atc_scale", "label": "Button size", "min": 60, "max": 160, "step": 5, "unit": "%", "default": 100 },
+    { "type": "range", "id": "card_radius", "label": "Card corner radius", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "border_width", "label": "Border width", "min": 0, "max": 6, "step": 1, "unit": "px", "default": 2 },
+    { "type": "range", "id": "gap", "label": "Gap between cards", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "text_gap", "label": "Gap between radio and text", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 10 },
+    { "type": "range", "id": "width_pct", "label": "Width", "min": 30, "max": 100, "step": 1, "unit": "%", "default": 100 },
+    { "type": "range", "id": "atc_radius", "label": "Button corner radius", "min": 0, "max": 40, "step": 1, "unit": "px", "default": 12 },
+    {
+      "type": "select", "id": "badge_position", "label": "Badge position", "default": "right",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+
+    { "type": "header", "content": "Behavior" },
+    { "type": "checkbox", "id": "sticky_atc", "label": "Sticky button (shown after scrolling past the main one)", "default": true },
+    {
+      "type": "select", "id": "after_add", "label": "After add to cart", "default": "overlay",
+      "options": [
+        { "value": "overlay", "label": "Open cart drawer" },
+        { "value": "cart", "label": "Go to cart" },
+        { "value": "checkout", "label": "Go to checkout" }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,11 @@
+{
+  "name": "admin-home",
+  "private": true,
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {},
+  "dependencies": {
+    "preact": "^10.10.x",
+    "@shopify/ui-extensions": "rc"
+  }
+}

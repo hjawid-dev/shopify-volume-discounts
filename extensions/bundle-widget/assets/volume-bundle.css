@@ -1,0 +1,150 @@
+volume-bundle.vb {
+  display: block;
+  inline-size: var(--vb-width, 100%);
+  margin-inline: auto;
+  --vb-accent: #16324a;
+  --vb-selected-bg: #f3f8fc;
+  --vb-badge-text: #ffffff;
+  --vb-atc-text: #ffffff;
+  --vb-border: #e3e6ea;
+  --vb-muted: #8b9199;
+  --vb-tier-scale: 1;
+  --vb-atc-scale: 1;
+  --vb-text-gap: 10px;
+  --vb-badge-inset-left: auto;
+  --vb-badge-inset-right: 18px;
+  font-family: inherit;
+}
+
+.vb__variants { display: none; }
+
+.vb__tiers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vb-gap, 14px);
+  margin: 0 0 20px;
+}
+
+/* The content (text, price, radio dot, badge) scales through font-size, so everything
+   inside is em-relative. The card's own geometry (padding) stays in rem, so changing the
+   content size does not resize the card itself. */
+.vb__tier {
+  position: relative;
+  display: flex;
+  align-items: center;
+  font-size: calc(1rem * var(--vb-tier-scale, 1));
+  gap: 1em;
+  padding: 1.25rem 1.4rem;
+  border: var(--vb-border-width, 1.5px) solid var(--vb-border);
+  border-radius: var(--vb-radius, 14px);
+  cursor: pointer;
+  background: #fff;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+.vb__tier.is-selected {
+  border-color: var(--vb-accent);
+  background: var(--vb-selected-bg);
+  box-shadow: 0 0 0 1px var(--vb-accent);
+}
+
+.vb__radio { position: absolute; opacity: 0; pointer-events: none; }
+
+.vb__radio-dot {
+  flex: 0 0 auto;
+  width: 1.5em;
+  height: 1.5em;
+  margin-inline-end: var(--vb-text-gap, 10px);
+  border-radius: 50%;
+  border: .12em solid var(--vb-border);
+  display: inline-grid;
+  place-items: center;
+  transition: border-color .15s ease;
+}
+.vb__tier.is-selected .vb__radio-dot { border-color: var(--vb-accent); }
+.vb__tier.is-selected .vb__radio-dot::after {
+  content: "";
+  width: .75em;
+  height: .75em;
+  border-radius: 50%;
+  background: var(--vb-accent);
+}
+
+.vb__info {
+  display: flex;
+  flex-direction: column;
+  gap: .12em;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.vb__label { font-weight: 700; font-size: 1.15em; line-height: 1.2; color: var(--vb-accent); }
+.vb__sublabel { color: var(--vb-muted); font-size: .95em; }
+
+.vb__price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  white-space: nowrap;
+}
+.vb__price-now { font-weight: 700; font-size: 1.15em; color: var(--vb-now-color, var(--vb-accent)); }
+.vb__price-was { color: var(--vb-was-color, var(--vb-muted)); text-decoration: line-through; font-size: .95em; }
+.vb__price-was[hidden] { display: none; }
+
+.vb__badge {
+  position: absolute;
+  top: 0;
+  left: var(--vb-badge-inset-left, auto);
+  right: var(--vb-badge-inset-right, 18px);
+  transform: translateY(-50%);
+  background: var(--vb-accent);
+  color: var(--vb-badge-text);
+  font-size: .82em;
+  font-weight: 700;
+  padding: .35em .85em;
+  border-radius: .5em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.vb__atc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5em;
+  width: 100%;
+  font-size: calc(1.15rem * var(--vb-atc-scale, 1));
+  padding: .8em 1.2em;
+  border: none;
+  border-radius: var(--vb-atc-radius, 12px);
+  background: var(--vb-atc-bg, var(--vb-accent));
+  color: var(--vb-atc-text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s ease, transform .05s ease;
+}
+.vb__atc-icon { flex: 0 0 auto; width: 1.2em; height: 1.2em; }
+.vb__atc:hover { opacity: .92; }
+.vb__atc:active { transform: translateY(1px); }
+.vb__atc[aria-busy="true"] { opacity: .6; pointer-events: none; }
+
+/* Sticky add-to-cart button – same look, smaller, pinned to the bottom. */
+.vb__sticky {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  display: flex;
+  justify-content: center;
+  padding: 8px 14px;
+  background: #fff;
+  box-shadow: 0 -2px 14px rgba(0, 0, 0, .12);
+}
+.vb__sticky[hidden] { display: none; }
+.vb__atc--sticky {
+  width: 100%;
+  max-width: 560px;
+  font-size: 1rem;
+  padding: .7em 1.2em;
+}
