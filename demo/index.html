@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Volume discount widget – static demo</title>
+  <link rel="stylesheet" href="../extensions/bundle-widget/assets/volume-bundle.css">
+  <style>
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f6f7f8; color: #1c2430; }
+    .page { max-width: 420px; margin: 0 auto; padding: 28px 20px 40px; background: #fff; min-height: 100vh; box-sizing: border-box; }
+    .note { font-size: 12px; color: #8b9199; margin: 0 0 18px; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .unit { color: #5b6470; margin: 0 0 30px; }
+    .toast { margin-top: 14px; font-size: 14px; color: #16324a; min-height: 20px; }
+  </style>
+</head>
+<body>
+  <!--
+    Static stand-in for a product page. The markup below is what blocks/volume_bundle.liquid
+    renders server-side; the stylesheet and script are the real extension assets.
+    Product, prices and offers are made-up demo data.
+  -->
+  <main class="page">
+    <p class="note">Static demo with made-up product data</p>
+    <h1>Insulated Bottle 500 ml</h1>
+    <p class="unit">249 kr each</p>
+
+    <volume-bundle
+      class="vb"
+      data-money-format="{{amount_no_decimals}} kr"
+      data-discount-type="percentage"
+      data-compare-mode="regular"
+      data-variant-id="1"
+      data-after-add="overlay"
+      style="--vb-accent: #16324a; --vb-selected-bg: #f3f8fc; --vb-badge-text: #ffffff; --vb-atc-text: #ffffff;
+             --vb-now-color: #16324a; --vb-was-color: #8b9199; --vb-atc-bg: #16324a; --vb-radius: 14px;
+             --vb-border-width: 2px; --vb-gap: 14px; --vb-atc-radius: 12px; --vb-width: 100%;"
+    >
+      <script type="application/json" class="vb__variants">{"1": {"price": 24900, "compareAt": null}}</script>
+
+      <div class="vb__tiers" role="radiogroup" aria-label="Choose an offer">
+        <label class="vb__tier" data-quantity="1" data-discount="0">
+          <input class="vb__radio" type="radio" name="vb-tier" value="1">
+          <span class="vb__radio-dot" aria-hidden="true"></span>
+          <span class="vb__info"><span class="vb__label">Buy 1</span><span class="vb__sublabel">1 item</span></span>
+          <span class="vb__price"><span class="vb__price-now" data-vb-now></span><span class="vb__price-was" data-vb-was hidden></span></span>
+        </label>
+        <label class="vb__tier is-selected" data-quantity="2" data-discount="10">
+          <span class="vb__badge">Most popular</span>
+          <input class="vb__radio" type="radio" name="vb-tier" value="2" checked>
+          <span class="vb__radio-dot" aria-hidden="true"></span>
+          <span class="vb__info"><span class="vb__label">Buy 2</span><span class="vb__sublabel">Save 10%</span></span>
+          <span class="vb__price"><span class="vb__price-now" data-vb-now></span><span class="vb__price-was" data-vb-was hidden></span></span>
+        </label>
+        <label class="vb__tier" data-quantity="3" data-discount="15">
+          <input class="vb__radio" type="radio" name="vb-tier" value="3">
+          <span class="vb__radio-dot" aria-hidden="true"></span>
+          <span class="vb__info"><span class="vb__label">Buy 3</span><span class="vb__sublabel">Save 15%</span></span>
+          <span class="vb__price"><span class="vb__price-now" data-vb-now></span><span class="vb__price-was" data-vb-was hidden></span></span>
+        </label>
+      </div>
+
+      <button type="button" class="vb__atc" data-vb-atc>
+        <svg class="vb__atc-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M6 7h13l-1.2 8.4a2 2 0 0 1-2 1.7H9.2a2 2 0 0 1-2-1.7L6 5H3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="9.5" cy="20" r="1.3" fill="currentColor"/>
+          <circle cx="16" cy="20" r="1.3" fill="currentColor"/>
+        </svg>
+        <span>Add to cart</span>
+      </button>
+    </volume-bundle>
+
+    <p class="toast" id="toast" role="status"></p>
+  </main>
+
+  <script>
+    // There is no Shopify cart here: answer the Ajax Cart API calls locally and show what was sent.
+    window.fetch = function (url, options) {
+      if (String(url).indexOf('/cart/add.js') !== -1) {
+        var item = JSON.parse(options.body).items[0];
+        document.getElementById('toast').textContent =
+          'POST /cart/add.js → quantity ' + item.quantity + ' (the discount itself is applied by the Shopify Function at checkout)';
+      }
+      return Promise.resolve({ok: true, json: function () { return Promise.resolve({}); }});
+    };
+    // No cart drawer in the demo either, so stay on the page instead of redirecting to /cart.
+    customElements.define('cart-drawer-component', class extends HTMLElement { open() {} });
+    document.body.appendChild(document.createElement('cart-drawer-component'));
+  </script>
+  <script src="../extensions/bundle-widget/assets/volume-bundle.js"></script>
+</body>
+</html>
