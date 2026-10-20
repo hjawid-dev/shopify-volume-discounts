@@ -10,7 +10,7 @@ module.exports = [
     languageOptions: {sourceType: 'script', globals: {...globals.browser, module: 'readonly'}},
   },
   {
-    files: ['extensions/admin-home/src/**/*.jsx'],
+    files: ['extensions/admin-home/src/**/*.{js,jsx}'],
     languageOptions: {
       parserOptions: {ecmaFeatures: {jsx: true}},
       globals: {...globals.browser, shopify: 'readonly'},

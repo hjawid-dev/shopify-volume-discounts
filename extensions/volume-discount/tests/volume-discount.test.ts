@@ -17,12 +17,15 @@ function buildInput({
   lines,
   discountClasses = [DiscountClass.Product],
   metafieldValue = TIERS,
+  presentmentCurrencyRate = '1.0',
 }: {
   lines: {id: string; quantity: number}[];
   discountClasses?: DiscountClass[];
   metafieldValue?: string | null;
+  presentmentCurrencyRate?: string;
 }) {
   return {
+    presentmentCurrencyRate,
     cart: {
       lines: lines.map((line) => ({
         id: line.id,
@@ -86,7 +89,7 @@ describe('cartLinesDiscountsGenerateRun', () => {
               value: {percentage: {value: 10}},
             },
           ],
-          selectionStrategy: ProductDiscountSelectionStrategy.First,
+          selectionStrategy: ProductDiscountSelectionStrategy.All,
         },
       },
     ]);
@@ -166,5 +169,37 @@ describe('cartLinesDiscountsGenerateRun', () => {
       buildInput({lines: [{id: 'gid://l/1', quantity: 5}], metafieldValue: '{not json'}),
     );
     expect(result.operations).toEqual([]);
+  });
+
+  test('every qualifying line keeps its discount, so two different products both get one', () => {
+    const result = cartLinesDiscountsGenerateRun(
+      buildInput({lines: [{id: 'gid://l/1', quantity: 3}, {id: 'gid://l/2', quantity: 3}]}),
+    );
+    const add = result.operations[0]?.productDiscountsAdd;
+    expect(add?.selectionStrategy).toBe(ProductDiscountSelectionStrategy.All);
+    expect(add?.candidates).toHaveLength(2);
+  });
+
+  test('a fixed amount applies when the cart is in the shop currency', () => {
+    const fixedConfig = JSON.stringify({discountType: 'fixed', offers: [{quantity: 2, value: 50}]});
+    const result = cartLinesDiscountsGenerateRun(
+      buildInput({lines: [{id: 'gid://l/1', quantity: 2}], metafieldValue: fixedConfig, presentmentCurrencyRate: '1.0'}),
+    );
+    expect(candidatesOf(result)[0]?.value).toEqual({fixedAmount: {amount: '50'}});
+  });
+
+  test('a fixed amount is not applied when the customer pays in another currency', () => {
+    const fixedConfig = JSON.stringify({discountType: 'fixed', offers: [{quantity: 2, value: 50}]});
+    const result = cartLinesDiscountsGenerateRun(
+      buildInput({lines: [{id: 'gid://l/1', quantity: 2}], metafieldValue: fixedConfig, presentmentCurrencyRate: '0.0871'}),
+    );
+    expect(result.operations).toEqual([]);
+  });
+
+  test('a percentage applies in every currency', () => {
+    const result = cartLinesDiscountsGenerateRun(
+      buildInput({lines: [{id: 'gid://l/1', quantity: 2}], presentmentCurrencyRate: '0.0871'}),
+    );
+    expect(candidatesOf(result)[0]?.value).toEqual({percentage: {value: 10}});
   });
 });

@@ -6,6 +6,13 @@
   assign cfg = shop.metafields.volume_discounts.widget_config.value
   assign offers = cfg.offers
   assign dtype = cfg.discountType | default: 'percentage'
+
+  # A fixed amount is set in the shop's currency, and the discount function only applies it when
+  # the customer pays in that currency. The offer is hidden otherwise, so it is never promised.
+  assign hide_offers = false
+  if dtype == 'fixed' and cart.currency.iso_code != shop.currency
+    assign hide_offers = true
+  endif
   assign cmp_mode = cfg.compareAtMode | default: 'regular'
   assign compare_unit = variant.compare_at_price
   assign tier_scale = block.settings.tier_scale | default: 100 | times: 0.01
@@ -65,8 +72,8 @@
     }
   </script>
 
-  {%- if offers == blank or offers.size == 0 -%}
-    {%- comment -%} No offers configured yet – set them up in the app. {%- endcomment -%}
+  {%- if offers == blank or offers.size == 0 or hide_offers -%}
+    {%- comment -%} No active offer, or a fixed-amount offer in another currency. {%- endcomment -%}
   {%- else -%}
     <div class="vb__tiers" role="radiogroup" aria-label="Choose an offer">
       {%- for offer in offers -%}

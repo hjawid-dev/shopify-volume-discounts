@@ -1,6 +1,8 @@
 import {render} from 'preact';
 import {useState, useEffect} from 'preact/hooks';
 
+import {activeDiscounts, blockingDiscount, widgetConfigFor} from './widget-config.js';
+
 const API = 'shopify:admin/api/2026-07/graphql.json';
 const FN_NS = '$app:volume-discount';
 const FN_KEY = 'function-configuration';
@@ -25,7 +27,7 @@ const LOAD = `
     shop {
       id
       currencyCode
-      widgetConfig: metafield(namespace: "${SHOP_NS}", key: "${SHOP_KEY}") { id }
+      widgetConfig: metafield(namespace: "${SHOP_NS}", key: "${SHOP_KEY}") { id value }
     }
     shopifyFunctions(first: 10) { nodes { id apiType } }
     discountNodes(first: 50) {
@@ -111,7 +113,6 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState();
   const [view, setView] = useState('list');
-  const [shopId, setShopId] = useState(null);
   const [currency, setCurrency] = useState('');
   const [functionId, setFunctionId] = useState(null);
   const [discounts, setDiscounts] = useState([]);
@@ -144,7 +145,6 @@ function App() {
     try {
       await ensureDefinition();
       const data = await adminGraphQL(LOAD);
-      setShopId(data.shop.id);
       setCurrency(data.shop.currencyCode);
 
       const fn = data.shopifyFunctions.nodes[0];
@@ -169,9 +169,20 @@ function App() {
             cartTitle: cfg.cartTitle || DEFAULT_CART_TITLE,
             offers: cfg.offers.length ? cfg.offers : defaultOffers(),
             atcText: cfg.atcText || DEFAULT_ATC_TEXT,
+            rawConfig: n.configField?.value ?? null,
           };
         });
       setDiscounts(list);
+
+      // Keep the widget in step with the discount that checkout applies. This also repairs it
+      // when a discount was paused, activated or deleted outside the app.
+      const widgetValue = widgetConfigFor(list);
+      if (data.shop.widgetConfig?.value !== widgetValue) {
+        const shopResult = await adminGraphQL(SET_SHOP, {
+          metafields: [{ownerId: data.shop.id, namespace: SHOP_NS, key: SHOP_KEY, type: 'json', value: widgetValue}],
+        });
+        throwUserErrors(shopResult.metafieldsSet.userErrors);
+      }
       return list;
     } catch (e) {
       setError(e.message);
@@ -217,6 +228,10 @@ function App() {
       }
       const value = JSON.stringify(configValue());
 
+      // A new discount is active from the start, and only one volume discount may be active.
+      const blocking = editing.id ? null : blockingDiscount(discounts, null);
+      if (blocking) throw new Error(onlyOneActive(blocking));
+
       if (editing.id) {
         const metafield = editing.metafieldId
           ? {id: editing.metafieldId, value}
@@ -240,14 +255,7 @@ function App() {
         throwUserErrors(data.discountAutomaticAppCreate.userErrors);
       }
 
-      // Mirror the saved config to the shop metafield the storefront widget reads.
-      const shopResult = await adminGraphQL(SET_SHOP, {
-        metafields: [
-          {ownerId: shopId, namespace: SHOP_NS, key: SHOP_KEY, type: 'json', value},
-        ],
-      });
-      throwUserErrors(shopResult.metafieldsSet.userErrors);
-
+      // load() also updates the widget when this is the active discount.
       await load();
       setView('list');
       shopify.toast?.show?.('Saved');
@@ -278,6 +286,8 @@ function App() {
     setError(undefined);
     try {
       const isActive = editing.status === 'ACTIVE';
+      const blocking = isActive ? null : blockingDiscount(discounts, editing.id);
+      if (blocking) throw new Error(onlyOneActive(blocking));
       const data = await adminGraphQL(isActive ? DEACTIVATE : ACTIVATE, {id: editing.id});
       const result = isActive ? data.discountAutomaticDeactivate : data.discountAutomaticActivate;
       throwUserErrors(result.userErrors);
@@ -335,6 +345,11 @@ function App() {
         <s-section>
           <s-stack gap="base">
             {error ? <s-banner tone="critical">{error}</s-banner> : null}
+            {activeDiscounts(discounts).length > 1 ? (
+              <s-banner tone="warning">
+                More than one volume discount is active, so the product page shows no offer. Pause all but one.
+              </s-banner>
+            ) : null}
             {discounts.length === 0 ? (
               <s-stack alignItems="center" gap="base">
                 <s-heading>No discounts yet</s-heading>
@@ -405,6 +420,15 @@ function App() {
             <s-option value="percentage">Percentage (%)</s-option>
             <s-option value="fixed">Fixed amount ({currency})</s-option>
           </s-select>
+          {isFixed ? (
+            <s-paragraph>
+              <s-text>
+                A fixed amount is in {currency} and only applies to customers who pay in {currency}.
+                Customers paying in another currency do not see the offer. Use a percentage to
+                give the offer in every market.
+              </s-text>
+            </s-paragraph>
+          ) : null}
         </s-section>
 
         <s-section heading="Discount title">
@@ -518,6 +542,10 @@ function parseConfig(value) {
   } catch {
     return {offers: [], atcText: '', discountType: 'percentage', compareAtMode: 'regular', cartTitle: DEFAULT_CART_TITLE};
   }
+}
+
+function onlyOneActive(blocking) {
+  return `Only one volume discount can be active at a time, so the product page and checkout always agree. Pause "${blocking.title}" first.`;
 }
 
 function throwUserErrors(userErrors) {

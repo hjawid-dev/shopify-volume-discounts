@@ -85,6 +85,14 @@ export function cartLinesDiscountsGenerateRun(
     return {operations: []};
   }
 
+  // Shopify reads a fixed amount in the currency of the cart. An amount set in the shop's
+  // currency would be wrong for a customer paying in another one, so fixed amounts only apply
+  // when the cart is in the shop's currency. The product page widget hides the offer in the
+  // same situation. Percentages work in every currency.
+  if (discountType === 'fixed' && Number(input.presentmentCurrencyRate) !== 1) {
+    return {operations: []};
+  }
+
   // One candidate per cart line that reaches at least one tier (tiers are sorted high to low).
   const candidates = input.cart.lines.flatMap((line) => {
     const tier = tiers.find((t) => line.quantity >= t.quantity);
@@ -119,7 +127,8 @@ export function cartLinesDiscountsGenerateRun(
       {
         productDiscountsAdd: {
           candidates,
-          selectionStrategy: ProductDiscountSelectionStrategy.First,
+          // Every qualifying cart line has its own candidate, and all of them apply.
+          selectionStrategy: ProductDiscountSelectionStrategy.All,
         },
       },
     ],
