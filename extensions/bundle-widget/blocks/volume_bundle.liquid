@@ -86,7 +86,8 @@
             assign discounted = regular | minus: val_cents | at_least: 0
           else
             assign keep = 100 | minus: val
-            assign discounted = regular | times: keep | divided_by: 100
+            # Rounded to the nearest minor unit, the same way the widget script does it.
+            assign discounted = regular | times: keep | divided_by: 100.0 | round
           endif
 
           # "Was" base: compare-at × quantity in compareAt mode (regular price if there is no compare-at price), otherwise regular price × quantity.
